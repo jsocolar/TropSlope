@@ -1,16 +1,18 @@
 var ecoregions = ee.FeatureCollection("ft:1Ec8IWsP8asxN-ywSqgXWMuBaxI6pPaeh6hC64lA"),
     gfc2014 = ee.Image("UMD/hansen/global_forest_change_2015"),
-    countries = ee.FeatureCollection("USDOS/LSIB_SIMPLE/2017");
+    countries = ee.FeatureCollection("USDOS/LSIB_SIMPLE/2017"),
+    countries2 = ee.FeatureCollection("ft:1tdSwUL7MVpOauSgRzqVTOwdfy17KDbw-1d9omPw");
 
 
-print('Test:', countries.aggregate_array('wld_rgn'));
+//print('Test:', countries.aggregate_array('wld_rgn'));
 // Get forest extent in 2000
+
 var extentImage1 = gfc2014.select(['treecover2000']);
 var extentImage = extentImage1.expression(
     'tc > 50', {
       'tc': extentImage1.select('treecover2000')
 });
-print(extentImage);
+//print(extentImage);
 // Get pixels with forest loss between 2000-2014
 var lossImage = gfc2014.select(['loss']);
 // Get pixels with forest gain between 2000-2014
@@ -43,7 +45,7 @@ var sGL = slope.addBands(GL);
 
 // Add the treecover band to the slope data
 var sEX = slope.addBands(extentImage);
-print(sEX);
+//print(sEX);
 
 var tropforests = ecoregions.filter(ee.Filter.eq('BIOME', 1));
 var S_am = countries.filter(ee.Filter.eq('wld_rgn', 'South America'));
@@ -58,10 +60,23 @@ var SAsia = countries.filter(ee.Filter.eq('wld_rgn', 'S Asia'));
 var SWAsia = countries.filter(ee.Filter.eq('wld_rgn', 'SW Asia'));
 var CAsia = countries.filter(ee.Filter.eq('wld_rgn', 'Central Asia'));
 var AsiaOceania = Oceania.merge(SEAsia).merge(EAsia).merge(SAsia).merge(SWAsia).merge(CAsia);
+var Uganda = countries2.filter(ee.Filter.eq('Country', 'Uganda'));
+var Ghana = countries2.filter(ee.Filter.eq('Country', 'Ghana'));
+var Nigeria = countries2.filter(ee.Filter.eq('Country', 'Nigeria'));
+var Congo = countries2.filter(ee.Filter.eq('Country', 'Congo'));
+var Ethiopia = countries2.filter(ee.Filter.eq('Country', 'Ethiopia'));
+
+var Zaire = countries2.filter(ee.Filter.eq('Country', 'Zaire'));
+var Peru = countries2.filter(ee.Filter.eq('Country', 'Peru'));
+var Brazil = countries2.filter(ee.Filter.eq('Country', 'Brazil'));
 
 var T_Americas = tropforests.filterBounds(Americas);
 var T_Africa = tropforests.filterBounds(Africa);
 var T_AsiaOceania = tropforests.filterBounds(AsiaOceania);
+var T_Uganda = tropforests.filterBounds(Uganda);
+var T_Ghana = tropforests.filterBounds(Ghana);
+var T_Congo = tropforests.filterBounds(Congo);
+var T_Ethiopia = tropforests.filterBounds(Ethiopia);
 
 var Americas_slope_GL = sGL.reduceRegion({
   reducer: ee.Reducer.mean().group({
@@ -123,6 +138,97 @@ var AsiaOceania_slope_2000 = sEX.reduceRegion({
   maxPixels: 5e12
 });
 
+
+var Uganda_slope_GL = sGL.reduceRegion({
+  reducer: ee.Reducer.mean().group({
+    groupField: 1,
+    groupName: 'gain',
+  }),
+  geometry: T_Uganda,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+var Uganda_slope_2000 = sEX.reduceRegion({
+  reducer: ee.Reducer.mean().group({
+    groupField: 1,
+    groupName: 'extent',
+  }),
+  geometry: T_Uganda,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+var Ghana_slope_GL = sGL.reduceRegion({
+  reducer: ee.Reducer.mean().group({
+    groupField: 1,
+    groupName: 'gain',
+  }),
+  geometry: T_Ghana,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+var Ghana_slope_2000 = sEX.reduceRegion({
+  reducer: ee.Reducer.mean().group({
+    groupField: 1,
+    groupName: 'extent',
+  }),
+  geometry: T_Ghana,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+var Congo_slope_GL = sGL.reduceRegion({
+  reducer: ee.Reducer.mean().group({
+    groupField: 1,
+    groupName: 'gain',
+  }),
+  geometry: T_Congo,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+var Congo_slope_2000 = sEX.reduceRegion({
+  reducer: ee.Reducer.mean().group({
+    groupField: 1,
+    groupName: 'extent',
+  }),
+  geometry: T_Congo,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+var Ethiopia_slope_GL = sGL.reduceRegion({
+  reducer: ee.Reducer.mean().group({
+    groupField: 1,
+    groupName: 'gain',
+  }),
+  geometry: T_Ethiopia,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+var Ethiopia_slope_2000 = sEX.reduceRegion({
+  reducer: ee.Reducer.mean().group({
+    groupField: 1,
+    groupName: 'extent',
+  }),
+  geometry: T_Ethiopia,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+Map.addLayer(T_Ethiopia);
+
+print(Uganda_slope_GL);
+print(Uganda_slope_2000);
+print(Ghana_slope_GL);
+print(Ghana_slope_2000);
+print(Congo_slope_GL);
+print(Congo_slope_2000);
+print(Ethiopia_slope_GL);
+print(Ethiopia_slope_2000);
 
 Export.table.toDrive({
   collection: ee.FeatureCollection([
