@@ -1,0 +1,297 @@
+var ecoregions = ee.FeatureCollection("ft:1Ec8IWsP8asxN-ywSqgXWMuBaxI6pPaeh6hC64lA"),
+    gfc2014 = ee.Image("UMD/hansen/global_forest_change_2015"),
+    countries = ee.FeatureCollection("USDOS/LSIB_SIMPLE/2017");
+
+
+print('Test:', countries.aggregate_array('wld_rgn'));
+// Get forest extent in 2000
+var extentImage1 = gfc2014.select(['treecover2000']);
+var extentImage = extentImage1.expression(
+    'tc > 50', {
+      'tc': extentImage1.select('treecover2000')
+});
+print(extentImage);
+// Get pixels with forest loss between 2000-2014
+var lossImage = gfc2014.select(['loss']);
+// Get pixels with forest gain between 2000-2014
+var gainImage = gfc2014.select(['gain']);
+// Get pixels with loss and no gain (lossOnly) and
+// gain and no loss (gainOnly)
+var gainAndLoss = lossImage.and(gainImage);
+var notBoth = gainAndLoss.expression(
+    '1 - GL', {
+      'GL': gainAndLoss.select('loss')
+});
+var gainOnly = gainImage.and(notBoth);
+var lossOnly = lossImage.and(notBoth);
+var GL = gainOnly.subtract(lossOnly);
+
+var GLpalette = ['FF0000', '000000', '00FF00'];
+//Map.addLayer(GL, {palette: GLpalette});
+
+// Load STRM elevation dataset and calculate slope
+var dataset = ee.Image('CGIAR/SRTM90_V4');
+var elevation = dataset.select('elevation');
+var slope = ee.Terrain.slope(elevation);
+
+// Add the gainOnly and lossOnly bands to the slope data
+//var sl = slope.addBands(gainOnly).addBands(lossOnly);
+//print(sl);
+
+// Add the GL band to the slope data
+var sGL = slope.addBands(GL);
+
+// Add the treecover band to the slope data
+var sEX = slope.addBands(extentImage);
+print(sEX);
+
+var tropforests = ecoregions.filter(ee.Filter.eq('BIOME', 1));
+var S_am = countries.filter(ee.Filter.eq('wld_rgn', 'South America'));
+var C_am = countries.filter(ee.Filter.eq('wld_rgn', 'Central America'));
+var N_am = countries.filter(ee.Filter.eq('wld_rgn', 'North America'));
+var Americas = S_am.merge(C_am).merge(N_am);
+var Africa = countries.filter(ee.Filter.eq('wld_rgn', 'Africa'));
+var Oceania = countries.filter(ee.Filter.eq('wld_rgn', 'Oceania'));
+var SEAsia = countries.filter(ee.Filter.eq('wld_rgn', 'SE Asia'));
+var EAsia = countries.filter(ee.Filter.eq('wld_rgn', 'E Asia'));
+var SAsia = countries.filter(ee.Filter.eq('wld_rgn', 'S Asia'));
+var SWAsia = countries.filter(ee.Filter.eq('wld_rgn', 'SW Asia'));
+var CAsia = countries.filter(ee.Filter.eq('wld_rgn', 'Central Asia'));
+var AsiaOceania = Oceania.merge(SEAsia).merge(EAsia).merge(SAsia).merge(SWAsia).merge(CAsia);
+
+var T_Americas = tropforests.filterBounds(Americas);
+var T_Africa = tropforests.filterBounds(Africa);
+var T_AsiaOceania = tropforests.filterBounds(AsiaOceania);
+
+var Americas_slope_GL = sGL.reduceRegion({
+  reducer: ee.Reducer.mean().group({
+    groupField: 1,
+    groupName: 'gain',
+  }),
+  geometry: T_Americas,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+var Americas_slope_2000 = sEX.reduceRegion({
+  reducer: ee.Reducer.mean().group({
+    groupField: 1,
+    groupName: 'extent',
+  }),
+  geometry: T_Americas,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+var Africa_slope_GL = sGL.reduceRegion({
+  reducer: ee.Reducer.mean().group({
+    groupField: 1,
+    groupName: 'gain',
+  }),
+  geometry: T_Africa,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+var Africa_slope_2000 = sEX.reduceRegion({
+  reducer: ee.Reducer.mean().group({
+    groupField: 1,
+    groupName: 'extent',
+  }),
+  geometry: T_Africa,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+var AsiaOceania_slope_GL = sGL.reduceRegion({
+  reducer: ee.Reducer.mean().group({
+    groupField: 1,
+    groupName: 'gain',
+  }),
+  geometry: T_AsiaOceania,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+var AsiaOceania_slope_2000 = sEX.reduceRegion({
+  reducer: ee.Reducer.mean().group({
+    groupField: 1,
+    groupName: 'extent',
+  }),
+  geometry: T_AsiaOceania,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+
+Export.table.toDrive({
+  collection: ee.FeatureCollection([
+    ee.Feature(null, Americas_slope_GL)
+  ]),
+  description: 'Americas_slope_GL',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: ee.FeatureCollection([
+    ee.Feature(null, Americas_slope_2000)
+  ]),
+  description: 'Americas_slope_2000',
+  fileFormat: 'CSV'
+});
+
+
+Export.table.toDrive({
+  collection: ee.FeatureCollection([
+    ee.Feature(null, Africa_slope_GL)
+  ]),
+  description: 'Africa_slope_GL',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: ee.FeatureCollection([
+    ee.Feature(null, Africa_slope_2000)
+  ]),
+  description: 'Africa_slope_2000',
+  fileFormat: 'CSV'
+});
+
+
+Export.table.toDrive({
+  collection: ee.FeatureCollection([
+    ee.Feature(null, AsiaOceania_slope_GL)
+  ]),
+  description: 'AsiaOceania_slope_GL',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: ee.FeatureCollection([
+    ee.Feature(null, AsiaOceania_slope_2000)
+  ]),
+  description: 'AsiaOceania_slope_2000',
+  fileFormat: 'CSV'
+});
+
+
+
+
+
+
+
+
+
+
+
+
+var Americas_slope_GL_hist = sGL.reduceRegion({
+  reducer: ee.Reducer.histogram().group({
+    groupField: 1,
+    groupName: 'gain',
+  }),
+  geometry: T_Americas,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+var Americas_slope_2000_hist = sEX.reduceRegion({
+  reducer: ee.Reducer.histogram().group({
+    groupField: 1,
+    groupName: 'extent',
+  }),
+  geometry: T_Americas,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+var Africa_slope_GL_hist = sGL.reduceRegion({
+  reducer: ee.Reducer.histogram().group({
+    groupField: 1,
+    groupName: 'gain',
+  }),
+  geometry: T_Africa,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+var Africa_slope_2000_hist = sEX.reduceRegion({
+  reducer: ee.Reducer.histogram().group({
+    groupField: 1,
+    groupName: 'extent',
+  }),
+  geometry: T_Africa,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+var AsiaOceania_slope_GL_hist = sGL.reduceRegion({
+  reducer: ee.Reducer.histogram().group({
+    groupField: 1,
+    groupName: 'gain',
+  }),
+  geometry: T_AsiaOceania,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+var AsiaOceania_slope_2000_hist = sEX.reduceRegion({
+  reducer: ee.Reducer.histogram().group({
+    groupField: 1,
+    groupName: 'extent',
+  }),
+  geometry: T_AsiaOceania,
+  scale: 30,
+  maxPixels: 5e12
+});
+
+
+Export.table.toDrive({
+  collection: ee.FeatureCollection([
+    ee.Feature(null, Americas_slope_GL_hist)
+  ]),
+  description: 'Americas_slope_GL_hist',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: ee.FeatureCollection([
+    ee.Feature(null, Americas_slope_2000_hist)
+  ]),
+  description: 'Americas_slope_2000_hist',
+  fileFormat: 'CSV'
+});
+
+
+Export.table.toDrive({
+  collection: ee.FeatureCollection([
+    ee.Feature(null, Africa_slope_GL_hist)
+  ]),
+  description: 'Africa_slope_GL_hist',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: ee.FeatureCollection([
+    ee.Feature(null, Africa_slope_2000_hist)
+  ]),
+  description: 'Africa_slope_2000_hist',
+  fileFormat: 'CSV'
+});
+
+
+Export.table.toDrive({
+  collection: ee.FeatureCollection([
+    ee.Feature(null, AsiaOceania_slope_GL_hist)
+  ]),
+  description: 'AsiaOceania_slope_GL_hist',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: ee.FeatureCollection([
+    ee.Feature(null, AsiaOceania_slope_2000_hist)
+  ]),
+  description: 'AsiaOceania_slope_2000_hist',
+  fileFormat: 'CSV'
+});
